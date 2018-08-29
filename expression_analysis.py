@@ -1,55 +1,16 @@
-#/usr/bin/python
-#import getpass
-#import re
-#import requests
-import sqlite3, csv
+#!/usr/bin/python
+import sqlite3, csv, re
 import sys
-#import unicodedata
 
 
-def createDB(conn):
-    interproscan7_table = "create table interproscan7(trinity, random1, random2, sites, codes1, description1, start, stop, evalue, randowm3, date, codes2, description2, goterms, reactom)"
+def createDBs(conn):
+    interproscan7_table = "create table interproscan7(trinity, random1, random2, sites, code1, description1, start, stop, evalue, random3, date, code2, description2, goterms, reactome)"
     expression_counts_table = "create table expression_counts (trinity, ho8_quants, ho7_quants)"
 
     cur = conn.cursor()
     cur.execute(interproscan7_table)
     cur.execute(expression_counts_table)
 
-
-def executeQuery(sql, username, password):
-    base_url = "https://www.e-access.att.com"
-    query_url = "%s/cnci/cgi-bin/rct/cce_query_out" % (base_url)
-
-    payload = {'q1' : sql, 'CSV' : 'on'}
-    headers = {'Content-Type' : 'application/json'}
-    ro = requests.post(query_url, data=payload, headers=headers, auth=(username,password), verify=False)
-
-    #print ro.status_code, ro.reason
-
-#    return csv_file
-
-
-def popInterProScan7(cur, data):
-    for i in data:
-        i = i.strip()
-        if len(i) == 0:
-            continue
-        else:
-            i = i.split("\t")
-            cur.execute("INSERT INTO interpro_scan_7 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", tuple(i))
-
-    return None
-
-def popInterProScan8(cur, data):
-    for i in data:
-        i = i.strip()
-        if len(i) == 0:
-            continue
-        else:
-            i = i.split("\t")
-            cur.execute("INSERT INTO interpro_scan_7 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", tuple(i))
-
-    return None
 
 def testDB(cur):
     cur.execute("SELECT * from hostinfo")
@@ -59,9 +20,37 @@ def testDB(cur):
 
     return None
 
-# PF00201
+
+def loadInterproScan7(cur):
+    tsv_data_file = open(sys.argv[1])
+    tsv_reader = csv.reader(tsv_data_file, delimiter="\t")
+
+    for i in tsv_reader:
+        # Remove the .p1 from the trinity value
+        i[0] = re.sub(r'_i.*.p1$', '', i[0])
+        print(i)
+        if len(i) == 0:
+            continue
+        else:
+            cur.execute("INSERT INTO interproscan7 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", tuple(i))
+
+
+def loadNorm(cur):
+    tsv_data_file = open(sys.argv[2])
+    tsv_reader = csv.reader(tsv_data_file, delimiter="\t")
+
+    for i in tsv_reader:
+        # Remove the "_i1-4" from the trinity value
+        i[0] = re.sub(r'_i.*$', '', i[0])
+        print(i)
+        if len(i) == 0:
+            continue
+        else:
+            cur.execute("INSERT INTO expression_counts VALUES (?, ?, ?)", tuple(i))
+
+
 def getDataSet(cur, filter):
-    cur.execute("SELECT trinity,start,stop FROM interproscan7 WHERE codes1 LIKE ?", (filter,))
+    cur.execute("SELECT trinity,start,stop FROM interproscan7 WHERE code1 LIKE ?", (filter,))
     file_name = "candidate_expression_%s.csv" % (filter)
     rows = cur.fetchall()
     data = []
@@ -69,7 +58,39 @@ def getDataSet(cur, filter):
     for row in rows:
         info = "%s,%s,%s\n" % (row[0],row[1],row[2])
         data.append(info)
-        print info
+
+    fo.writelines(data)
+    fo.close()
+
+def getNormAndHoData(cur, filter):
+    #Generate a temporary view for the ho8 and ho7 quants aggregate counts
+    sql_view = ('CREATE TEMP VIEW expression_count_aggregates '
+                'AS '
+                'SELECT trinity, SUM(ho8_quants) as ho8_quants, '
+                'SUM(ho7_quants) as ho7_quants '
+                'FROM expression_counts '
+                'GROUP BY trinity ')
+
+    cur.execute(sql_view)
+
+    sql      = ('SELECT DISTINCT inter.trinity, inter.start, inter.stop, '
+                'ec.ho8_quants, ec.ho7_quants '
+                'FROM interproscan7 inter '
+                'INNER JOIN expression_count_aggregates ec '
+                'ON inter.trinity = ec.trinity '
+                'WHERE code1 LIKE "%s" '
+                'ORDER BY inter.trinity ')
+
+    file_name = "norm_and_ho7-8_data_%s.csv" % (filter)
+    print sql % (filter)
+    cur.execute(sql % (filter))
+    rows = cur.fetchall()
+
+    data = []
+    fo = open(file_name, 'w')
+    for row in rows:
+        info = "%s,%s,%s,%s,%s\n" % (row[0],row[1],row[2],row[3],row[4])
+        data.append(info)
 
     fo.writelines(data)
     fo.close()
@@ -77,26 +98,18 @@ def getDataSet(cur, filter):
 if __name__ == "__main__":
     conn = sqlite3.Connection("expression_data.sqlite3")
     #conn = sqlite3.Connection(":memory:")
-    #cur = createDB(conn)
+    createDBs(conn)
     cur = conn.cursor()
-    '''
-    tsv_data_file = open(sys.argv[1])
-    tsv_reader = csv.reader(tsv_data_file, delimiter="\t")
-
-    for i in tsv_reader:
-        print(i)
-        #i = i.strip()
-        if len(i) == 0:
-            continue
-        else:
-            #i = i.split(", ")
-            cur.execute("INSERT INTO interproscan7 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", tuple(i))
-     '''
+    loadInterproScan7(cur)
+    loadNorm(cur)
 
 
     # PF00201
     getDataSet(cur, "PF00201")
     # PS00375
     getDataSet(cur, "PS00375")
+    getNormAndHoData(cur, "PF00201")
+
+
     conn.commit()
     conn.close()
