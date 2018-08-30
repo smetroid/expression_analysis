@@ -6,10 +6,12 @@ import sys
 def createDBs(conn):
     interproscan7_table = "create table interproscan7(trinity, random1, random2, sites, code1, description1, start, stop, evalue, random3, date, code2, description2, goterms, reactome)"
     expression_counts_table = "create table expression_counts (trinity, ho8_quants, ho7_quants)"
+    fasta                   = "create table fasta (trinity, data BLOB)"
 
     cur = conn.cursor()
     cur.execute(interproscan7_table)
     cur.execute(expression_counts_table)
+    cur.execute(fasta)
 
 
 def testDB(cur):
@@ -103,6 +105,48 @@ def getNormAndHoData(cur, filter):
     fo.close()
 
 
+def loadFastaData(cur):
+    trinity = ""
+    data = ""
+    with open(sys.argv[3]) as f:
+        for i in f:
+            match = re.search(r"^>TRINITY", i)
+            print i
+            if (match):
+                if (data == ""):
+                    trinity_field = re.split(" ", match.group(0))
+                    trinity = trinity_field[0]
+                    data = i
+                else:
+                    # print trinity
+                    # print data
+                    sql_insert = (trinity, data)
+                    cur.execute("INSERT INTO fasta VALUES (?, ?)", tuple(sql_insert))
+
+                    trinity_field = re.split(" ", match.group(0))
+                    trinity = trinity_field[0]
+                    data = i
+            else:
+                data += i
+
+        # When EOF is reached commit the last values into SQL
+        sql_insert = (trinity, data)
+        cur.execute("INSERT INTO fasta VALUES (?, ?)", tuple(sql_insert))
+
+
+def fastData():
+    tsv_data_file = open(sys.argv[2])
+    tsv_reader = csv.reader(tsv_data_file, delimiter="\t")
+
+    for i in tsv_reader:
+        # Remove the "_i1-4" from the trinity value
+        i[0] = re.sub(r'_i.*$', '', i[0])
+        print(i)
+        if len(i) == 0:
+            continue
+        else:
+            cur.execute("INSERT INTO expression_counts VALUES (?, ?, ?)", tuple(i))
+
 if __name__ == "__main__":
     conn = sqlite3.Connection("expression_data.sqlite3")
     #conn = sqlite3.Connection(":memory:")
@@ -111,7 +155,6 @@ if __name__ == "__main__":
     loadInterproScan7(cur)
     loadNorm(cur)
 
-
     # PF00201
     getDataSet(cur, "PF00201")
     # PS00375
@@ -119,6 +162,7 @@ if __name__ == "__main__":
     buildTempView(cur)
     getNormAndHoData(cur, "PF00201")
     getNormAndHoData(cur, "PS00375")
+    loadFastaData(cur)
 
 
     conn.commit()
