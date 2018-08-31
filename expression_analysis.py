@@ -68,7 +68,7 @@ def getDataSet(cur, filter):
 
 def buildTempView(cur):
     #Generate a temporary view for the ho8 and ho7 quants aggregate counts
-    sql_view = ('CREATE TEMP VIEW expression_count_aggregates '
+    sql_view = ('CREATE VIEW expression_count_aggregates '
                 'AS '
                 'SELECT trinity, SUM(ho8_quants) as ho8_quants, '
                 'SUM(ho7_quants) as ho7_quants '
@@ -110,22 +110,18 @@ def loadFastaData(cur):
     data = ""
     with open(sys.argv[3]) as f:
         for i in f:
-            match = re.search(r"^>TRINITY", i)
-            print i
+            match = re.search(r'^>TRINITY', i)
+            #print i
             if (match):
-                if (data == ""):
-                    trinity_field = re.split(" ", match.group(0))
-                    trinity = trinity_field[0]
-                    data = i
-                else:
-                    # print trinity
-                    # print data
+                if (data != ""):
                     sql_insert = (trinity, data)
                     cur.execute("INSERT INTO fasta VALUES (?, ?)", tuple(sql_insert))
-
-                    trinity_field = re.split(" ", match.group(0))
-                    trinity = trinity_field[0]
                     data = i
+                else:
+                    data = i
+
+                trinity_field = i.split(" ")
+                trinity = re.sub(r'_i.*$', '', trinity_field[0]).replace('>', '')
             else:
                 data += i
 
@@ -134,7 +130,7 @@ def loadFastaData(cur):
         cur.execute("INSERT INTO fasta VALUES (?, ?)", tuple(sql_insert))
 
 
-def fastData():
+def fastaDataQuery(cur):
     tsv_data_file = open(sys.argv[2])
     tsv_reader = csv.reader(tsv_data_file, delimiter="\t")
 
@@ -146,6 +142,7 @@ def fastData():
             continue
         else:
             cur.execute("INSERT INTO expression_counts VALUES (?, ?, ?)", tuple(i))
+
 
 if __name__ == "__main__":
     conn = sqlite3.Connection("expression_data.sqlite3")
