@@ -1,0 +1,112 @@
+SELECT inter.trinity,inter.start,inter.stop FROM interproscan7 inter
+LEFT JOIN expression_counts ec
+ON inter.trinity = ec.trinity
+WHERE code1 like "PF00201"
+
+
+SELECT inter.trinity,inter.start,inter.stop,ec.ho8_quants,ec.ho7_quants FROM expression_counts ec
+LEFT JOIN interproscan7 inter
+ON ec.trinity = inter.trinity
+WHERE code1 like "PF00201"
+
+
+
+SELECT inter.trinity,inter.start,inter.stop,SUM(ec.ho8_quants),SUM(ec.ho7_quants) FROM expression_counts ec
+LEFT JOIN interproscan7 inter
+ON ec.trinity = inter.trinity
+WHERE code1 like "PF00201"
+GROUP BY ec.ho8_quants, ec.ho7_quants
+ORDER BY ec.trinity
+
+
+--SELECT DISTINCT inter.trinity,inter.start,inter.stop,SUM(ec.ho8_quants) as ho8_quants,SUM(ec.ho7_quants) as ho7_quants FROM expression_counts ec
+--SELECT DISTINCT inter.trinity,inter.start,inter.stop, SUM(ec.ho8_quants),SUM(ec.ho7_quants) FROM expression_counts ec
+--SELECT inter.trinity,inter.start,inter.stop, ec.ho8_quants,ec.ho7_quants FROM expression_counts ec
+--SELECT DISTINCT inter.trinity,inter.start,inter.stop, SUM(ec.ho8_quants),SUM(ec.ho7_quants) FROM expression_counts ec
+
+
+CREATE VIEW expression_count_aggregates
+AS
+SELECT trinity,SUM(ho8_quants) as ho8_quants, SUM(ho7_quants) as ho7_quants FROM expression_counts
+GROUP BY trinity
+
+SELECT distinct inter.trinity,inter.start,inter.stop, ec.ho8_quants,ec.ho7_quants FROM interproscan7 inter
+inner JOIN expression_count_aggregates ec
+ON inter.trinity = ec.trinity
+WHERE code1 like "PF00201"
+GROUP BY ec.trinity, inter.start, inter.stop
+ORDER BY ec.trinity
+
+
+SELECT DISTINCT inter.trinity,inter.start,inter.stop, ec.ho8_quants,ec.ho7_quants FROM interproscan7 interjjkkë
+INNER JOIN expression_count_aggregates ec
+ON inter.trinity = ec.trinity
+WHERE code1 like "PF00201"
+ORDER BY ec.trinity
+
+--GROUP BY inter.trinity, inter.start, inter.stop
+
+SELECT distinct trinity, start,stop FROM interproscan7
+WHERE code1 like "PF00201" AND trinity = "TRINITY_DN10601_c0_g1"
+
+SELECT trinity, start,stop FROM interproscan7
+WHERE code1 like "PF00201" AND trinity = "TRINITY_DN10601_c0_g1"
+
+
+SELECT * FROM interproscan7
+WHERE trinity = "TRINITY_DN12071_c0_g1" AND code1 = "PF00201"
+
+
+SELECT DISTINCT inter.trinity, inter.start, inter.stop, ec.ho8_quants, ec.ho7_quants, fa.data FROM interproscan7 inter
+INNER JOIN expression_count_aggregates ec ON inter.trinity = ec.trinity
+LEFT JOIN fasta fa on fa.trinity = ec.trinity
+WHERE code1 like "PF00201"
+ORDER BY ec.trinity
+
+
+
+
+SELECT inter.trinity,inter.start,inter.stop FROM interproscan7 inter
+LEFT JOIN expression_counts ec
+ON inter.trinity = ec.trinity
+WHERE code1 like "PF00201"
+
+
+
+--- Take list from above and run against Transdecoder
+SELECT distinct(inter.trinity),fho8t.data FROM interproscan8 inter
+LEFT JOIN fastaho8transdecoder fho8t
+ON inter.trinity = fho8t.trinity
+WHERE code1 like "PF00201" OR code1 like "PS00375"
+
+
+
+
+--- Take list from above and run against fasta
+SELECT substr(inter.trinity, 1, length(inter.trinity)),fho7.data FROM interproscan7 inter
+LEFT JOIN fastaho7 fho7
+ON substr(inter.trinity, 1, length(inter.trinity)-3) = fho7.trinity
+WHERE code1 like "PF00201" OR code1 like "PS00375"
+
+
+
+--- Take list from above and run against fasta
+SELECT substr(inter.trinity, 1, length(inter.trinity)),fho8.data FROM interproscan8 inter
+LEFT JOIN fastaho8 fho8
+ON substr(inter.trinity, 1, length(inter.trinity)-3) = fho8.trinity
+WHERE code1 like "PF00201" OR code1 like "PS00375"
+
+
+
+--- Take list and run against count_expression
+SELECT distinct(substr(inter.trinity, 1, instr(inter.trinity,"_g") + (instr(inter.trinity, "_i") - instr(inter.trinity, "g")))), ec.ho8_quants, ec.ho7_quants FROM interproscan8 inter
+LEFT JOIN expression_count_aggregates ec
+ON substr(inter.trinity, 1, instr(inter.trinity,"_g") + (instr(inter.trinity, "_i") - instr(inter.trinity, "g")))= ec.trinity
+WHERE code1 like "PF00201" OR code1 like "PS00375"
+
+
+
+SELECT distinct(substr(inter.trinity, 1, instr(inter.trinity,"_g") + (instr(inter.trinity, "_i") - instr(inter.trinity, "g")))) trinity7, ec.ho8_quants, ec.ho7_quants FROM interproscan7 inter
+LEFT JOIN expression_count_aggregates ec
+ON substr(inter.trinity, 1, instr(inter.trinity,"_g") + (instr(inter.trinity, "_i") - instr(inter.trinity, "g")))= ec.trinity
+WHERE code1 like "PF00201" OR code1 like "PS00375"
