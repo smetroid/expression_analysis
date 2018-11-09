@@ -11,6 +11,7 @@ def createDBs(conn):
     fastaho8                = "create table fastaho8 (trinity, data BLOB)"
     fastaho7transdecoder    = "create table fastaho7transdecoder (trinity, data BLOB)"
     fastaho8transdecoder    = "create table fastaho8transdecoder (trinity, data BLOB)"
+    ho8ids_with_quantids    = "create table ho8idswithquantsids (ho8ids, jointids)"
 
     cur = conn.cursor()
     cur.execute(interproscan7_table)
@@ -20,6 +21,7 @@ def createDBs(conn):
     cur.execute(fastaho8)
     cur.execute(fastaho7transdecoder)
     cur.execute(fastaho8transdecoder)
+    cur.execute(ho8ids_with_quantids)
 
 
 def testDB(cur):
@@ -235,6 +237,22 @@ def loadFastaDataHo8Transdecoder(cur):
         cur.execute("INSERT INTO fastaho8transdecoder VALUES (?, ?)", tuple(sql_insert))
 
 
+def loadHo8idsWithQuantIds(cur):
+    tsv_data_file = open("./data/ho8_ids_with_corresponding_combined_ho7_ho8_ids.csv")
+    tsv_reader = csv.reader(tsv_data_file, delimiter="\t")
+
+    for i in tsv_reader:
+        # Remove the "_i1-4" from the trinity value
+        #i[0] = re.sub(r'_i.*$', '', i[0])
+        print(i)
+        if len(i) == 0:
+            continue
+        else:
+             cur.execute("INSERT INTO ho8idswithquantsids VALUES (?, ?)", tuple(i))
+
+
+
+
 def fastaDataQuery(cur):
     tsv_data_file = open(sys.argv[2])
     tsv_reader = csv.reader(tsv_data_file, delimiter="\t")
@@ -269,6 +287,7 @@ if __name__ == "__main__":
     loadFastaDataHo8(cur)
     loadFastaDataHo7Transdecoder(cur)
     loadFastaDataHo8Transdecoder(cur)
+    loadHo8idsWithQuantIds(cur)
 
 
     conn.commit()
